@@ -8,4 +8,9 @@ int main(int argc, char* argv[]) {
   struct cel0_Value* parsed = cel0_parse(argv[1]);
   cel0_printValue(parsed, stdout);
   printf("\n");
+
+  struct cel0_Value* evaluated = cel0_eval(parsed);    
+  cel0_printValue(evaluated, stdout);
+  printf("\n");
+
 }
