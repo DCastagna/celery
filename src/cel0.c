@@ -145,7 +145,9 @@ static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindi
     struct cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value->u.vector);
     assert(binding && "can't find binding.");
     struct cel0_Value* parameters = createVectorValue();
-    char eval_parameters = binding->type != cel0_SymbolBindingType_TransformNative;
+    char eval_parameters =
+      binding->type == cel0_SymbolBindingType_Native ||
+      binding->type == cel0_SymbolBindingType_Expression;
     for (int i=1; i<value->size; i++) {
       struct cel0_Value* p = eval_parameters ? eval(value->u.vector + i, stack) : (value->u.vector + i);
       parameters = appendValueToVectorInPlace(parameters, p);
@@ -155,8 +157,9 @@ static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindi
 	binding->type == cel0_SymbolBindingType_Native) {
        return binding->u.native(parameters, stack);
     } else {
-      assert(binding->type == cel0_SymbolBindingType_Expression);
-      assert("lambda/transform  not implemented yet.");	
+      assert(binding->type == cel0_SymbolBindingType_Expression ||
+	     binding->type == cel0_SymbolBindingType_Transform);
+      assert("Eval of lambda/transform not implemented yet.");	
     }
     stack->size = caller_stack_size;
   } else if (value->type == cel0_ValueType_Number) {
