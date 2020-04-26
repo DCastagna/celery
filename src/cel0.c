@@ -199,6 +199,33 @@ struct cel0_Value* bind(struct cel0_Value* params, struct cel0_SymbolBindingStac
   return result;
 }
 
+struct cel0_Value* quote(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+  assert(params);
+  assert(stack);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 1);  
+  return params->u.vector;
+}
+
+struct cel0_Value* ifStatement(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 3);
+
+  struct cel0_Value* condition_expression = eval(params->u.vector, stack);
+  assert(condition_expression->type == cel0_ValueType_Symbol);
+
+  char* symbol = condition_expression->u.symbol;
+  char condition_true = strcmp(symbol, "true") == 0;
+  char condition_false = !condition_true && (strcmp(symbol, "false") == 0);
+  assert(condition_true || condition_false);
+  assert(condition_true != condition_false);  
+
+  if (condition_true)
+    return eval(params->u.vector + 1, stack);
+  return eval(params->u.vector + 2, stack);
+}
+
 struct cel0_Value* add(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
@@ -210,7 +237,6 @@ struct cel0_Value* add(struct cel0_Value* params, struct cel0_SymbolBindingStack
   }
   return createNumberValue(result);
 }
-
 
 struct cel0_Value* mul(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
   assert(stack);
@@ -233,6 +259,18 @@ struct cel0_Value* cel0_eval(struct cel0_Value* value) {
   struct cel0_SymbolBinding frames[capacity];
 
   int size = 0;
+  frames[size].type = cel0_SymbolBindingType_TransformNative;
+  frames[size].symbol = createSymbolValue("bind");
+  frames[size].u.native = bind;
+  size++;
+  frames[size].type = cel0_SymbolBindingType_TransformNative;
+  frames[size].symbol = createSymbolValue("if");
+  frames[size].u.native = ifStatement;
+  size++;
+  frames[size].type = cel0_SymbolBindingType_TransformNative;
+  frames[size].symbol = createSymbolValue("quote");
+  frames[size].u.native = quote;
+  size++;
   frames[size].type = cel0_SymbolBindingType_Native;
   frames[size].symbol = createSymbolValue("add");
   frames[size].u.native = add;
@@ -240,10 +278,6 @@ struct cel0_Value* cel0_eval(struct cel0_Value* value) {
   frames[size].type = cel0_SymbolBindingType_Native;
   frames[size].symbol = createSymbolValue("mul");
   frames[size].u.native = mul;
-  size++;
-  frames[size].type = cel0_SymbolBindingType_TransformNative;
-  frames[size].symbol = createSymbolValue("bind");
-  frames[size].u.native = bind;
   size++;
   
   struct cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
