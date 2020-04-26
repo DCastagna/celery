@@ -4,7 +4,7 @@
 #define cel0_ValueType_Symbol 1
 #define cel0_ValueType_Vector 2
 
-struct cel0_Value {
+typedef struct cel0_Value {
   int type;
   union {
     int number;
@@ -12,7 +12,7 @@ struct cel0_Value {
     struct cel0_Value* vector;
   } u;
   int size;    
-};
+} cel0_Value;
 
 #define cel0_SymbolBindingType_Expression 0
 #define cel0_SymbolBindingType_Transform 1
@@ -20,23 +20,24 @@ struct cel0_Value {
 #define cel0_SymbolBindingType_TransformNative 3
 
 struct cel0_SymbolBindingStack;
-struct cel0_SymbolBinding {
+typedef struct cel0_SymbolBinding {
   int type;
-  struct cel0_Value* symbol;
+  cel0_Value* symbol;
   union {
-    struct cel0_Value* expression;
-    struct cel0_Value* (*native)(struct cel0_Value* parameters, struct cel0_SymbolBindingStack* stack);
+    cel0_Value* expression;
+    cel0_Value* (*native)(cel0_Value* parameters, struct cel0_SymbolBindingStack* stack);
   } u;
-};
-struct cel0_SymbolBindingStack {
-  struct cel0_SymbolBinding* frames;
+} cel0_SymbolBinding;
+
+typedef struct cel0_SymbolBindingStack {
+  cel0_SymbolBinding* frames;
   int size;
   int capacity;
-};
+} cel0_SymbolBindingStack;
 
-struct cel0_Value* cel0_parse(char* code);
+cel0_Value* cel0_parse(char* code);
 
-void cel0_printValue(struct cel0_Value* value, FILE* fd);
+void cel0_printValue(cel0_Value* value, FILE* fd);
 
-struct cel0_Value* cel0_eval(struct cel0_Value* value);
+cel0_Value* cel0_eval(cel0_Value* value);
 

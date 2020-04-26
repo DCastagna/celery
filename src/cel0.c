@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct cel0_Value* createNumberValue(int number) {
-  struct cel0_Value* value = malloc(sizeof(struct cel0_Value));
+cel0_Value* createNumberValue(int number) {
+  cel0_Value* value = malloc(sizeof(cel0_Value));
   value->type = cel0_ValueType_Number;
   value->u.number = number;
   return value;
@@ -29,35 +29,35 @@ static char* internSymbol(char* name) {
   return g_symbols[g_symbol_number++];
 }
 
-static struct cel0_Value* createSymbolValue(char* name) {
+static cel0_Value* createSymbolValue(char* name) {
   assert(name);
   
-  struct cel0_Value* value = malloc(sizeof(struct cel0_Value));
+  cel0_Value* value = malloc(sizeof(cel0_Value));
   value->type = cel0_ValueType_Symbol;
   value->u.symbol = internSymbol(name);
   return value;
 }
     
-static struct cel0_Value* createVectorValue() {
-  struct cel0_Value* value = malloc(sizeof(struct cel0_Value));
+static cel0_Value* createVectorValue() {
+  cel0_Value* value = malloc(sizeof(cel0_Value));
   value->u.vector = malloc(0);
   value->type = cel0_ValueType_Vector;
   value->size = 0;
   return value;
 }
-static struct cel0_Value* appendValueToVectorInPlace(struct cel0_Value* vector, struct cel0_Value* value) {
+static cel0_Value* appendValueToVectorInPlace(cel0_Value* vector, cel0_Value* value) {
   assert(vector);
   assert(vector->type == cel0_ValueType_Vector);
   assert(value);
   
   int new_size = vector->size + 1;
-  vector->u.vector = realloc(vector->u.vector, new_size * sizeof(struct cel0_Value));
+  vector->u.vector = realloc(vector->u.vector, new_size * sizeof(cel0_Value));
   vector->u.vector[vector->size] = *value;
   vector->size = new_size;
   return vector;
 }
 
-static struct cel0_Value* parseNumber(char** code) {
+static cel0_Value* parseNumber(char** code) {
   int result = 0;
   char* code_it = *code;
   char negative = *code_it == '-';
@@ -72,7 +72,7 @@ static struct cel0_Value* parseNumber(char** code) {
   return createNumberValue(result);
 }
 
-static struct cel0_Value* parseSymbol(char** code) {
+static cel0_Value* parseSymbol(char** code) {
   char end[] = " \f\n\r\t\v)(\0";
   
   int length = strcspn(*code, end);
@@ -84,10 +84,10 @@ static struct cel0_Value* parseSymbol(char** code) {
   return createSymbolValue(name);
 }
 
-static struct cel0_Value* parse(char** code) {
+static cel0_Value* parse(char** code) {
   char whitespaces[] = " \f\n\r\t\v";  
   char* code_it = *code + strspn(*code, whitespaces);
-  struct cel0_Value* value = 0;
+  cel0_Value* value = 0;
 
   if (*code_it == '(') {
     code_it++;
@@ -107,11 +107,11 @@ static struct cel0_Value* parse(char** code) {
   return value;
 }
 
-struct cel0_Value* cel0_parse(char* code) {
+cel0_Value* cel0_parse(char* code) {
   return parse(&code);
 }
 
-void cel0_printValue(struct cel0_Value* value, FILE* fd) {
+void cel0_printValue(cel0_Value* value, FILE* fd) {
   if (value->type == cel0_ValueType_Vector) {
     fprintf(fd, "(");    
     for (int i=0; i<value->size; i++) {
@@ -125,10 +125,10 @@ void cel0_printValue(struct cel0_Value* value, FILE* fd) {
   }
 }
 
-struct cel0_SymbolBinding* lookupSymbolBinding(struct cel0_SymbolBindingStack* stack, struct cel0_Value* key) {
+cel0_SymbolBinding* lookupSymbolBinding(cel0_SymbolBindingStack* stack, cel0_Value* key) {
   assert(key->type == cel0_ValueType_Symbol);
   for (int i=stack->size-1; i>=0; i-=1) {
-    struct cel0_SymbolBinding* binding = stack->frames + i;
+    cel0_SymbolBinding* binding = stack->frames + i;
     assert(binding->symbol->type == cel0_ValueType_Symbol);
     if (binding->symbol->u.symbol == key->u.symbol) {
       return binding;
@@ -138,18 +138,18 @@ struct cel0_SymbolBinding* lookupSymbolBinding(struct cel0_SymbolBindingStack* s
   return 0;
 }
 
-static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindingStack* stack) {
+static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
   if (value->type == cel0_ValueType_Vector) {
     int caller_stack_size = stack->size;
     assert(value->size > 0);
-    struct cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value->u.vector);
+    cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value->u.vector);
     assert(binding && "can't find binding.");
-    struct cel0_Value* parameters = createVectorValue();
+    cel0_Value* parameters = createVectorValue();
     char eval_parameters =
       binding->type == cel0_SymbolBindingType_Native ||
       binding->type == cel0_SymbolBindingType_Expression;
     for (int i=1; i<value->size; i++) {
-      struct cel0_Value* p = eval_parameters ? eval(value->u.vector + i, stack) : (value->u.vector + i);
+      cel0_Value* p = eval_parameters ? eval(value->u.vector + i, stack) : (value->u.vector + i);
       parameters = appendValueToVectorInPlace(parameters, p);
     }
 
@@ -165,7 +165,7 @@ static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindi
   } else if (value->type == cel0_ValueType_Number) {
     return value;
   } else if (value->type == cel0_ValueType_Symbol) {
-    struct cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value);
+    cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value);
     assert(binding && "can't find binding.");
     if (binding->type == cel0_SymbolBindingType_Expression) {
       return binding->u.expression;
@@ -179,7 +179,7 @@ static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindi
   assert(0);
 }
 
-struct cel0_Value* bind(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   assert(params->size == 2);
@@ -189,20 +189,20 @@ struct cel0_Value* bind(struct cel0_Value* params, struct cel0_SymbolBindingStac
 
   assert(stack->size < stack->capacity);
 
-  struct cel0_Value* bound_expression = eval(params->u.vector[0].u.vector + 1, stack);
+  cel0_Value* bound_expression = eval(params->u.vector[0].u.vector + 1, stack);
   
-  struct cel0_SymbolBinding* binding = stack->frames + stack->size;
+  cel0_SymbolBinding* binding = stack->frames + stack->size;
   binding->type = cel0_SymbolBindingType_Expression;
   binding->symbol = params->u.vector[0].u.vector;
   binding->u.expression = bound_expression;
   int caller_stack_size = stack->size;
   stack->size++;
-  struct cel0_Value* result = eval(params->u.vector + 1, stack);
+  cel0_Value* result = eval(params->u.vector + 1, stack);
   stack->size = caller_stack_size;
   return result;
 }
 
-struct cel0_Value* quote(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(stack);
   assert(params->type == cel0_ValueType_Vector);
@@ -210,12 +210,12 @@ struct cel0_Value* quote(struct cel0_Value* params, struct cel0_SymbolBindingSta
   return params->u.vector;
 }
 
-struct cel0_Value* ifStatement(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   assert(params->size == 3);
 
-  struct cel0_Value* condition_expression = eval(params->u.vector, stack);
+  cel0_Value* condition_expression = eval(params->u.vector, stack);
   assert(condition_expression->type == cel0_ValueType_Symbol);
 
   char* symbol = condition_expression->u.symbol;
@@ -229,7 +229,7 @@ struct cel0_Value* ifStatement(struct cel0_Value* params, struct cel0_SymbolBind
   return eval(params->u.vector + 2, stack);
 }
 
-struct cel0_Value* add(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+cel0_Value* add(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
@@ -241,7 +241,7 @@ struct cel0_Value* add(struct cel0_Value* params, struct cel0_SymbolBindingStack
   return createNumberValue(result);
 }
 
-struct cel0_Value* mul(struct cel0_Value* params, struct cel0_SymbolBindingStack* stack) {
+cel0_Value* mul(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
@@ -255,9 +255,9 @@ struct cel0_Value* mul(struct cel0_Value* params, struct cel0_SymbolBindingStack
 
 #define cel0_SymbolBindingFrameCapacity 1<<10
 
-struct cel0_Value* cel0_eval(struct cel0_Value* value) {
+cel0_Value* cel0_eval(cel0_Value* value) {
   int capacity = cel0_SymbolBindingFrameCapacity;
-  struct cel0_SymbolBinding frames[capacity];
+  cel0_SymbolBinding frames[capacity];
 
   int size = 0;
   frames[size].type = cel0_SymbolBindingType_TransformNative;
@@ -281,7 +281,7 @@ struct cel0_Value* cel0_eval(struct cel0_Value* value) {
   frames[size].u.native = mul;
   size++;
   
-  struct cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
+  cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
   stack.frames = frames;
   return eval(value, &stack);
