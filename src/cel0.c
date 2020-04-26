@@ -125,7 +125,7 @@ void cel0_printValue(cel0_Value* value, FILE* fd) {
   }
 }
 
-cel0_SymbolBinding* lookupSymbolBinding(cel0_SymbolBindingStack* stack, cel0_Value* key) {
+cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindingStack* stack) {
   assert(key->type == cel0_ValueType_Symbol);
   for (int i=stack->size-1; i>=0; i-=1) {
     cel0_SymbolBinding* binding = stack->frames + i;
@@ -142,7 +142,7 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
   if (value->type == cel0_ValueType_Vector) {
     int caller_stack_size = stack->size;
     assert(value->size > 0);
-    cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value->u.vector);
+    cel0_SymbolBinding* binding = lookupSymbolBinding(value->u.vector, stack);
     assert(binding && "can't find binding.");
     cel0_Value* parameters = createVectorValue();
     char eval_parameters =
@@ -165,7 +165,7 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
   } else if (value->type == cel0_ValueType_Number) {
     return value;
   } else if (value->type == cel0_ValueType_Symbol) {
-    cel0_SymbolBinding* binding = lookupSymbolBinding(stack, value);
+    cel0_SymbolBinding* binding = lookupSymbolBinding(value, stack);
     assert(binding && "can't find binding.");
     if (binding->type == cel0_SymbolBindingType_Expression) {
       return binding->u.expression;
