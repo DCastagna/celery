@@ -256,8 +256,6 @@ struct cel0_Value* mul(struct cel0_Value* params, struct cel0_SymbolBindingStack
 #define cel0_SymbolBindingFrameCapacity 1<<10
 
 struct cel0_Value* cel0_eval(struct cel0_Value* value) {
-  // TODO: add #mul, #add, #bind & co
-
   int capacity = cel0_SymbolBindingFrameCapacity;
   struct cel0_SymbolBinding frames[capacity];
 
