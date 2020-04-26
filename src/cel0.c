@@ -126,7 +126,7 @@ void cel0_printValue(struct cel0_Value* value, FILE* fd) {
 }
 
 struct cel0_SymbolBinding* lookupSymbolBinding(struct cel0_SymbolBindingStack* stack, struct cel0_Value* key) {
-  assert(key->type == cel0_ValueType_Symbol);  
+  assert(key->type == cel0_ValueType_Symbol);
   for (int i=stack->size-1; i>=0; i-=1) {
     struct cel0_SymbolBinding* binding = stack->frames + i;
     assert(binding->symbol->type == cel0_ValueType_Symbol);
@@ -169,7 +169,7 @@ static struct cel0_Value* eval(struct cel0_Value* value, struct cel0_SymbolBindi
     } else if (binding->type == cel0_SymbolBindingType_Native ||
 	       binding->type == cel0_SymbolBindingType_TransformNative ){
       char name[cel0_MaxSymbolLength];
-      sprintf(name,cel0_SymbolBindingType_Native ? "#native-%p" : "#t-native-%p", (void*)(binding->u.expression));
+      sprintf(name, binding->type == cel0_SymbolBindingType_Native ? "@%p" : "#%p", (void*)(binding->u.expression));
       return createSymbolValue(name);
     }
   }
@@ -281,7 +281,6 @@ struct cel0_Value* cel0_eval(struct cel0_Value* value) {
   size++;
   
   struct cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
-
   
   stack.frames = frames;
   return eval(value, &stack);
