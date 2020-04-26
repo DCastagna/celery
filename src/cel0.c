@@ -260,26 +260,19 @@ cel0_Value* cel0_eval(cel0_Value* value) {
   cel0_SymbolBinding frames[capacity];
 
   int size = 0;
-  frames[size].type = cel0_SymbolBindingType_TransformNative;
-  frames[size].symbol = createSymbolValue("bind");
-  frames[size].u.native = bind;
-  size++;
-  frames[size].type = cel0_SymbolBindingType_TransformNative;
-  frames[size].symbol = createSymbolValue("if");
-  frames[size].u.native = ifStatement;
-  size++;
-  frames[size].type = cel0_SymbolBindingType_TransformNative;
-  frames[size].symbol = createSymbolValue("quote");
-  frames[size].u.native = quote;
-  size++;
-  frames[size].type = cel0_SymbolBindingType_Native;
-  frames[size].symbol = createSymbolValue("add");
-  frames[size].u.native = add;
-  size++;
-  frames[size].type = cel0_SymbolBindingType_Native;
-  frames[size].symbol = createSymbolValue("mul");
-  frames[size].u.native = mul;
-  size++;
+  int transform = cel0_SymbolBindingType_TransformNative;
+  int native = cel0_SymbolBindingType_Native;  
+  
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = transform, .symbol = createSymbolValue("bind"), .u = {.native = bind}};
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = transform, .symbol = createSymbolValue("if"), .u = {.native = ifStatement}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = transform, .symbol = createSymbolValue("quote"), .u = {.native = quote}};
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("add"), .u = {.native = add}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("mul"), .u = {.native = mul}}; 
   
   cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
