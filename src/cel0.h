@@ -15,9 +15,8 @@ typedef struct cel0_Value {
 } cel0_Value;
 
 #define cel0_SymbolBindingType_Expression 0
-#define cel0_SymbolBindingType_Transform 1
-#define cel0_SymbolBindingType_Native 2
-#define cel0_SymbolBindingType_TransformNative 3
+#define cel0_SymbolBindingType_Native 1
+#define cel0_SymbolBindingType_TransformNative 2
 
 struct cel0_SymbolBindingStack;
 typedef struct cel0_SymbolBinding {
