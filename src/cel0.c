@@ -201,7 +201,7 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
   assert(0);
 }
 
-cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   assert(params->size == 2);
@@ -224,7 +224,7 @@ cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return result;
 }
 
-cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(stack);
   assert(params->type == cel0_ValueType_Vector);
@@ -235,7 +235,7 @@ cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return params;
 }
 
-cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(stack);
   assert(params->type == cel0_ValueType_Vector);
@@ -243,7 +243,7 @@ cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return params->u.vector;
 }
 
-cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   assert(params->size == 3);
@@ -262,7 +262,7 @@ cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return eval(params->u.vector + 2, stack);
 }
 
-cel0_Value* add(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* add(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
@@ -274,7 +274,7 @@ cel0_Value* add(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return createNumberValue(result);
 }
 
-cel0_Value* mul(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+static cel0_Value* mul(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
@@ -286,11 +286,30 @@ cel0_Value* mul(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return createNumberValue(result);
 }
 
-#define cel0_SymbolBindingFrameCapacity 1<<10
+static cel0_Value* eq(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 2);
+  assert(params->u.vector[0].type == params->u.vector[1].type);
+
+  char equal = 0;
+  if (params->u.vector[0].type == cel0_ValueType_Number) {
+    equal = params->u.vector[0].u.number == params->u.vector[1].u.number;
+  } else if (params->u.vector[0].type == cel0_ValueType_Symbol) {
+    equal = params->u.vector[0].u.symbol == params->u.vector[1].u.symbol;    
+  } else {
+    assert(params->u.vector[0].type == cel0_ValueType_Vector);
+    equal = params->u.vector == params->u.vector + 1;
+  }
+  return createSymbolValue(equal ? "true" : "false");
+}
+
+#define cel0_SymbolBindingFrameCapacity 1<<20
 
 cel0_Value* cel0_eval(cel0_Value* value) {
   int capacity = cel0_SymbolBindingFrameCapacity;
-  cel0_SymbolBinding frames[capacity];
+  cel0_SymbolBinding* frames = malloc(sizeof(cel0_SymbolBinding)*capacity);
 
   int size = 0;
   int transform = cel0_SymbolBindingType_TransformNative;
@@ -308,6 +327,8 @@ cel0_Value* cel0_eval(cel0_Value* value) {
     { .type = native, .symbol = createSymbolValue("add"), .u = {.native = add}}; 
   frames[size++] = (cel0_SymbolBinding)
     { .type = native, .symbol = createSymbolValue("mul"), .u = {.native = mul}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("eq"), .u = {.native = eq}}; 
   
   cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
