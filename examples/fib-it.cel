@@ -1,0 +1,10 @@
+(bind
+ (fib-it (lambda (it n1 n2)
+	   (if (eq it 0) n2
+	     (fib-it (add it -1) n2 (add n1 n2)))))
+ (bind
+  (fib (lambda (n)
+	 (if (eq n 0) 0
+	   (if (eq n 1) 1
+	     (fib-it (add n -1) 0 1)))))
+  (fib 30)))
