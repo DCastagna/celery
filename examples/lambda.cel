@@ -1,0 +1,3 @@
+(bind (inc (lambda (x)
+	     (add x 1)))
+      (inc 1))

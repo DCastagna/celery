@@ -125,7 +125,7 @@ void cel0_printValue(cel0_Value* value, FILE* fd) {
   }
 }
 
-cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindingStack* stack) {
+static cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindingStack* stack) {
   assert(key->type == cel0_ValueType_Symbol);
   for (int i=stack->size-1; i>=0; i-=1) {
     cel0_SymbolBinding* binding = stack->frames + i;
@@ -136,6 +136,29 @@ cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindingStack
   }
   assert(0 && "We couldn't find the binding");
   return 0;
+}
+
+static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack);
+static cel0_Value* apply(cel0_Value* expression, cel0_Value* parameters, cel0_SymbolBindingStack* stack) {
+  assert(expression->type == cel0_ValueType_Vector);
+  assert(expression->size == 2);
+  assert(expression->u.vector[0].type == cel0_ValueType_Vector);
+  assert(parameters->type == cel0_ValueType_Vector);
+  assert(expression->u.vector[0].size == parameters->size);      
+
+  int caller_stack_size = stack->size;  
+  for (int i=0; i<parameters->size; i++) {
+    assert(stack->size < stack->capacity);    
+    cel0_SymbolBinding* binding = stack->frames + stack->size;
+    binding->type = cel0_SymbolBindingType_Expression;
+    binding->symbol = expression->u.vector[0].u.vector + i;
+    binding->u.expression = parameters->u.vector + i;
+    stack->size++;
+  }
+
+  cel0_Value* result = eval(expression->u.vector + 1, stack);    
+  stack->size = caller_stack_size;
+  return result;
 }
 
 static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
@@ -157,9 +180,8 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
 	binding->type == cel0_SymbolBindingType_Native) {
        return binding->u.native(parameters, stack);
     } else {
-      assert(binding->type == cel0_SymbolBindingType_Expression ||
-	     binding->type == cel0_SymbolBindingType_Transform);
-      assert("Eval of lambda/transform not implemented yet.");	
+      assert(binding->type == cel0_SymbolBindingType_Expression);
+      return apply(binding->u.expression, parameters, stack);
     }
     stack->size = caller_stack_size;
   } else if (value->type == cel0_ValueType_Number) {
@@ -200,6 +222,17 @@ cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   cel0_Value* result = eval(params->u.vector + 1, stack);
   stack->size = caller_stack_size;
   return result;
+}
+
+cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(params);
+  assert(stack);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 2);
+  assert(params->u.vector[0].type == cel0_ValueType_Vector);
+  assert(params->u.vector[1].type == cel0_ValueType_Vector);  
+
+  return params;
 }
 
 cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
@@ -265,6 +298,8 @@ cel0_Value* cel0_eval(cel0_Value* value) {
   
   frames[size++] = (cel0_SymbolBinding)
     { .type = transform, .symbol = createSymbolValue("bind"), .u = {.native = bind}};
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = transform, .symbol = createSymbolValue("lambda"), .u = {.native = lambda}};
   frames[size++] = (cel0_SymbolBinding)
     { .type = transform, .symbol = createSymbolValue("if"), .u = {.native = ifStatement}}; 
   frames[size++] = (cel0_SymbolBinding)
