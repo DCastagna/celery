@@ -9,8 +9,13 @@ int main(int argc, char* argv[]) {
   (void)argc; (void)argv;
   
   char input[cel0_MaxInputBuffer];
-  fgets(input, cel0_MaxInputBuffer, stdin);
-  assert(strlen(input) < cel0_MaxInputBuffer - 1);
+  int chars_read = 0;
+  do {
+    fgets(input + chars_read, cel0_MaxInputBuffer - chars_read, stdin);
+    chars_read += strlen(input + chars_read);
+    assert(chars_read < cel0_MaxInputBuffer - 1);
+  } while(!feof(stdin));
+  
   struct cel0_Value* parsed = cel0_parse(input);
   cel0_printValue(parsed, stdout);
   printf("\n");
