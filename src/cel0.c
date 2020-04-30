@@ -15,7 +15,7 @@ cel0_Value* createNumberValue(int number) {
 #define cel0_MaxSymbolLength 16
 #define cel0_MaxSymbols (1<<10)
 
-static char g_symbols[cel0_MaxSymbolLength][cel0_MaxSymbols];
+static char g_symbols[cel0_MaxSymbols][cel0_MaxSymbolLength];
 static int g_symbol_number = 0;
 static char* internSymbol(char* name) {
   assert(strlen(name) < cel0_MaxSymbolLength);  
@@ -117,7 +117,8 @@ void cel0_printValue(cel0_Value* value, FILE* fd) {
     for (int i=0; i<value->size; i++) {
       cel0_printValue(value->u.vector + i, fd);
     }
-    fprintf(fd, "\b) ");        
+    if (value->size) fprintf(fd, "\b");
+    fprintf(fd, ") ");        
   } else if (value->type == cel0_ValueType_Number) {
     fprintf(fd, "%d ", value->u.number);
   } else if (value->type == cel0_ValueType_Symbol) {
@@ -305,6 +306,44 @@ static cel0_Value* eq(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return createSymbolValue(equal ? "true" : "false");
 }
 
+static cel0_Value* append(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 2);
+  cel0_Value* first = params->u.vector;
+  assert(first->type == cel0_ValueType_Vector);
+  
+  cel0_Value* result = createVectorValue();
+  result->size = first->size + 1;
+  result->u.vector = malloc(result->size * sizeof(cel0_Value));
+  memcpy(result->u.vector, first->u.vector, first->size * sizeof(cel0_Value));
+  result->u.vector[result->size - 1] = *(params->u.vector + 1);
+  return result;
+}
+
+static cel0_Value* length(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 1);
+  return createNumberValue(params->u.vector->size);
+}
+
+static cel0_Value* nth(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 2);
+  cel0_Value* index = params->u.vector;
+  assert(index->type == cel0_ValueType_Number);  
+  cel0_Value* vec = params->u.vector + 1;
+  assert(vec->type == cel0_ValueType_Vector);
+  assert(index->u.number < vec->size);
+  assert(index->u.number >= 0);  
+  return vec->u.vector + index->u.number;
+}
+
 #define cel0_SymbolBindingFrameCapacity 1<<20
 
 cel0_Value* cel0_eval(cel0_Value* value) {
@@ -328,7 +367,13 @@ cel0_Value* cel0_eval(cel0_Value* value) {
   frames[size++] = (cel0_SymbolBinding)
     { .type = native, .symbol = createSymbolValue("mul"), .u = {.native = mul}}; 
   frames[size++] = (cel0_SymbolBinding)
-    { .type = native, .symbol = createSymbolValue("eq"), .u = {.native = eq}}; 
+    { .type = native, .symbol = createSymbolValue("eq"), .u = {.native = eq}};
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("length"), .u = {.native = length}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("append"), .u = {.native = append}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("nth"), .u = {.native = nth}}; 
   
   cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
