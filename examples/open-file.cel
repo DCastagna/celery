@@ -1,0 +1,3 @@
+(bind
+ (buffer (open-file! (quote open-file.cel)))
+ (length buffer))

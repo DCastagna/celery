@@ -31,7 +31,6 @@ static char* internSymbol(char* name) {
 
 static cel0_Value* createSymbolValue(char* name) {
   assert(name);
-  
   cel0_Value* value = malloc(sizeof(cel0_Value));
   value->type = cel0_ValueType_Symbol;
   value->u.symbol = internSymbol(name);
@@ -135,6 +134,7 @@ static cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindi
       return binding;
     }
   }
+  fprintf(stderr, "Can't find symbol %s\n", key->u.symbol);
   assert(0 && "We couldn't find the binding");
   return 0;
 }
@@ -344,6 +344,30 @@ static cel0_Value* nth(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   return vec->u.vector + index->u.number;
 }
 
+static cel0_Value* open_file(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  assert(params->size == 1);
+  cel0_Value* file_name = params->u.vector;
+  assert(file_name->type == cel0_ValueType_Symbol);
+  FILE* file = fopen(file_name->u.symbol, "rb");
+  assert(file);
+  fseek(file, 0, SEEK_END);
+  int size = ftell(file);
+  rewind(file);
+
+  cel0_Value* buffer = createVectorValue();
+  buffer->size = size;
+  buffer->u.vector = realloc(buffer->u.vector, size * sizeof(cel0_Value));
+  for (int i=0; i<size; i++) {
+    buffer->u.vector[i].type = cel0_ValueType_Number;
+    fread(&buffer->u.vector[i].u.number, 1, 1, file);
+  }
+  fclose(file);
+  return buffer;
+}
+
 #define cel0_SymbolBindingFrameCapacity 1<<20
 
 cel0_Value* cel0_eval(cel0_Value* value) {
@@ -374,6 +398,8 @@ cel0_Value* cel0_eval(cel0_Value* value) {
     { .type = native, .symbol = createSymbolValue("append"), .u = {.native = append}}; 
   frames[size++] = (cel0_SymbolBinding)
     { .type = native, .symbol = createSymbolValue("nth"), .u = {.native = nth}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("open-file!"), .u = {.native = open_file}}; 
   
   cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
