@@ -370,6 +370,20 @@ static cel0_Value* open_file(cel0_Value* params, cel0_SymbolBindingStack* stack)
   return buffer;
 }
 
+static cel0_Value* vector(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  return params;
+}
+
+static cel0_Value* debug_print(cel0_Value* params, cel0_SymbolBindingStack* stack) {
+  assert(stack);
+  assert(params);
+  assert(params->type == cel0_ValueType_Vector);
+  return params;
+}
+
 #define cel0_SymbolBindingFrameCapacity 1<<20
 
 cel0_Value* cel0_eval(cel0_Value* value) {
@@ -379,7 +393,7 @@ cel0_Value* cel0_eval(cel0_Value* value) {
   int size = 0;
   int transform = cel0_SymbolBindingType_TransformNative;
   int native = cel0_SymbolBindingType_Native;  
-  
+
   frames[size++] = (cel0_SymbolBinding)
     { .type = transform, .symbol = createSymbolValue("bind"), .u = {.native = bind}};
   frames[size++] = (cel0_SymbolBinding)
@@ -402,6 +416,10 @@ cel0_Value* cel0_eval(cel0_Value* value) {
     { .type = native, .symbol = createSymbolValue("nth"), .u = {.native = nth}}; 
   frames[size++] = (cel0_SymbolBinding)
     { .type = native, .symbol = createSymbolValue("open-file!"), .u = {.native = open_file}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("dp!"), .u = {.native = debug_print}}; 
+  frames[size++] = (cel0_SymbolBinding)
+    { .type = native, .symbol = createSymbolValue("vec"), .u = {.native = vector}}; 
   
   cel0_SymbolBindingStack stack = {.frames = frames, .size = size, .capacity = capacity };
   
