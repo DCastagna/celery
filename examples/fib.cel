@@ -1,7 +1,10 @@
 (bind
  (fib (lambda (n)
-	(if (eq n 0) 0
-	  (if (eq n 1) 1
-	    (add (fib (add n -1)) (fib (add n -2)))))))
+	(if (eq n 0)
+	    0
+	    (if (eq n 1) 1
+		(bind
+		 (fib-n-1 (fib (add n -1)))
+		 (fib-n-2 (fib (add n -2)))		 
+		 (add fib-n-1 fib-n-2))))))
  (fib 11))
-	    

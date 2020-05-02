@@ -1,0 +1,7 @@
+(bind
+ (factorial
+  (lambda (x)
+    (if (eq x 1)
+	1
+	(mul x (factorial (add x -1))))))
+ (factorial 15))

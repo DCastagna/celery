@@ -4,5 +4,5 @@
 	(lambda (buffer it sum)
 	  (if (eq it (length buffer))
 	      sum
-	    (add-chars buffer (add it 1) (add sum (nth it buffer))))))
+	      (add-chars buffer (add it 1) (add sum (nth it buffer))))))
        (add-chars buffer 0 0)))

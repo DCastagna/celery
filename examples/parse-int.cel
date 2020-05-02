@@ -1,0 +1,41 @@
+(bind
+ (range
+  (lambda (b e)
+    (bind
+     (range-acc
+      (lambda (b e acc)
+	(if (eq b e) acc (range-acc (add b 1) e (append acc b)))))
+     (range-acc b e (vec)))))
+
+ (contains
+  (lambda (x buff it)
+    (if (eq (add it 1) (length buff))
+	(quote false)
+	(if (eq (nth it buff) x)
+	    (quote true)
+	    (contains x buff (add it 1))))))
+
+ (close-paren (range 9 16))  
+ (whitespaces (range 9 16)) 
+ (int-chars (range 48 60))
+ (minus-sign-char 45)
+
+ (parse-int
+  (lambda (buff it)
+    (bind
+     (parse-int-acc
+      (lambda (buff it acc)
+	(if (eq it (length buff)) acc
+	    (if (contains (nth it buff) int-chars 0)
+		(parse-int-acc buff (add 1 it) (add (mul acc 10) (add (nth it buff) -48)))
+		(if (contains (nth it buff 0) whitespaces)
+		    acc
+		    (if (eq (nth it buff) close-paren)
+			acc
+			panic))))))
+     (if (eq (nth it buff) minus-sign-char)	
+	 (mul -1 (parse-int-acc buff (add 1 it) 0))
+         (parse-int-acc buff it 0)))))
+
+ (file-buffer (open-file! (quote int.cel)))
+ (parse-int file-buffer 0))

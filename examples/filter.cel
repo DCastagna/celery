@@ -2,10 +2,10 @@
  (filter-out-1s
   (lambda (v it res)
     (if (eq (length v) (add it 1))
-	    res
-	    (bind
-	     (el (nth it v))
-	     (filter-out-1s v (add it 1)
-			    (if (eq el 1) res
-			      (append res el)))))))
- (filter-out-1s (quote (1 2 3 4 1 5 6 7 1 8 1 1 9 1)) 0 (quote ())))
+	res
+	(bind
+	 (el (nth it v))
+	 (filter-out-1s v (add it 1)
+			(if (eq el 1) res
+			    (append res el)))))))
+ (filter-out-1s (vec 1 2 3 4 1 5 6 7 1 8 1 1 9 1) 0 (vec)))
