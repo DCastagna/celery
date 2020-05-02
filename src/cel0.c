@@ -205,22 +205,24 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
 static cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
-  assert(params->size == 2);
-  assert(params->u.vector[0].type == cel0_ValueType_Vector);
-  assert(params->u.vector[0].size == 2);
-  assert(params->u.vector[0].u.vector[0].type == cel0_ValueType_Symbol);    
+  assert(params->size > 1);
+  int caller_stack_size = stack->size;  
+  for (int i=0; i<params->size-1; i+=1) {
+    assert(params->u.vector[i].type == cel0_ValueType_Vector);
+    assert(params->u.vector[i].size == 2);
+    assert(params->u.vector[i].u.vector[0].type == cel0_ValueType_Symbol);    
 
-  assert(stack->size < stack->capacity);
+    assert(stack->size < stack->capacity);
 
-  cel0_Value* bound_expression = eval(params->u.vector[0].u.vector + 1, stack);
+    cel0_Value* bound_expression = eval(params->u.vector[i].u.vector + 1, stack);
   
-  cel0_SymbolBinding* binding = stack->frames + stack->size;
-  binding->type = cel0_SymbolBindingType_Expression;
-  binding->symbol = params->u.vector[0].u.vector;
-  binding->u.expression = bound_expression;
-  int caller_stack_size = stack->size;
-  stack->size++;
-  cel0_Value* result = eval(params->u.vector + 1, stack);
+    cel0_SymbolBinding* binding = stack->frames + stack->size;
+    binding->type = cel0_SymbolBindingType_Expression;
+    binding->symbol = params->u.vector[i].u.vector;
+    binding->u.expression = bound_expression;
+    stack->size++;
+  }
+  cel0_Value* result = eval(params->u.vector + params->size - 1, stack);  
   stack->size = caller_stack_size;
   return result;
 }
