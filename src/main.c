@@ -1,24 +1,28 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "cel0.h"
 
-#define cel0_MaxInputBuffer (1<<10)
 int main(int argc, char* argv[]) {
   (void)argc; (void)argv;
-  
-  char input[cel0_MaxInputBuffer];
+
+  int input_size = 1024;
+  char* input = malloc(1024);
+  assert(input);
   int chars_read = 0;
   do {
-    fgets(input + chars_read, cel0_MaxInputBuffer - chars_read, stdin);
+    fgets(input + chars_read, input_size - chars_read, stdin);
     chars_read += strlen(input + chars_read);
-    assert(chars_read < cel0_MaxInputBuffer - 1);
+    if (chars_read == input_size - 1) {
+      input_size *= 2;
+      input = realloc(input, input_size);
+      assert(input);
+    }
   } while(!feof(stdin));
   
   struct cel0_Value* parsed = cel0_parse(input);
-  cel0_printValue(parsed, stdout);
-  printf("\n");
   struct cel0_Value* evaluated = cel0_eval(parsed);    
   cel0_printValue(evaluated, stdout);
   printf("\n");
