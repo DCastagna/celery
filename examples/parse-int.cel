@@ -9,7 +9,7 @@
 
  (contains
   (lambda (x buff it)
-    (if (eq (add it 1) (length buff))
+    (if (eq it (length buff))
 	(quote false)
 	(if (eq (nth it buff) x)
 	    (quote true)
@@ -28,7 +28,7 @@
 	(if (eq it (length buff)) acc
 	    (if (contains (nth it buff) int-chars 0)
 		(parse-int-acc buff (add 1 it) (add (mul acc 10) (add (nth it buff) -48)))
-		(if (contains (nth it buff 0) whitespaces)
+		(if (contains (nth it buff) whitespaces 0)
 		    acc
 		    (if (eq (nth it buff) close-paren)
 			acc
