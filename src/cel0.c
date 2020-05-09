@@ -140,18 +140,22 @@ cel0_Value* cel0_parse(char* code) {
 }
 
 void cel0_printValue(cel0_Value* value, FILE* fd) {
+  assert(value->type == cel0_ValueType_Vector ||
+	 value->type == cel0_ValueType_Number ||
+	 value->type == cel0_ValueType_Symbol);
   if (value->type == cel0_ValueType_Vector) {
     fprintf(fd, "(");
     cel0_VectorMetadata* metadata = lookupVectorMetadata(value->u.vector_id);
     for (int i=0; i<metadata->size; i++) {
       cel0_printValue(metadata->vector + i, fd);
+      if (i != metadata->size - 1)
+	fprintf(fd, " ");              
     }
-    if (metadata->size) fprintf(fd, "\b");    
-    fprintf(fd, ") ");        
+    fprintf(fd, ")");
   } else if (value->type == cel0_ValueType_Number) {
-    fprintf(fd, "%d ", value->u.number);
+    fprintf(fd, "%d", value->u.number);
   } else if (value->type == cel0_ValueType_Symbol) {
-    fprintf(fd, "%s ", lookupSymbolName(value->u.symbol_id));    
+    fprintf(fd, "%s", lookupSymbolName(value->u.symbol_id));    
   }
 }
 
@@ -445,7 +449,11 @@ static cel0_Value* debug_print(cel0_Value* params, cel0_SymbolBindingStack* stac
   assert(stack);
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
-  return params;
+  cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);
+  assert(metadata->size == 1);
+  cel0_printValue(metadata->vector, stdout);
+  printf("\n");
+  return metadata->vector;
 }
 
 #define cel0_SymbolBindingFrameCapacity 1<<20
