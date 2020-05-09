@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
   
 #define cel0_ValueType_Number 0
@@ -9,10 +10,10 @@ typedef struct cel0_Value {
   union {
     int number;
     int symbol_id;
-    struct cel0_Value* vector;
+    int vector_id;    
   } u;
-  int size;    
 } cel0_Value;
+static_assert(sizeof(cel0_Value) == 8, "cel0_Value should be 64 bits");
 
 #define cel0_SymbolBindingType_Expression 0
 #define cel0_SymbolBindingType_Native 1
