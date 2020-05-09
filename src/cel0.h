@@ -8,7 +8,7 @@ typedef struct cel0_Value {
   int type;
   union {
     int number;
-    char* symbol;
+    int symbol_id;
     struct cel0_Value* vector;
   } u;
   int size;    

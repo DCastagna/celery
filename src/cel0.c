@@ -17,23 +17,29 @@ cel0_Value* createNumberValue(int number) {
 
 static char g_symbols[cel0_MaxSymbols][cel0_MaxSymbolLength];
 static int g_symbol_number = 0;
-static char* internSymbol(char* name) {
+static int internSymbol(char* name) {
   assert(strlen(name) < cel0_MaxSymbolLength);  
   for (int i=0; i<g_symbol_number; i++) {
     if (strcmp(g_symbols[i], name) == 0)
-      return g_symbols[i];
+      return i;
   }
   assert(g_symbol_number < cel0_MaxSymbols);
 
   strcpy(g_symbols[g_symbol_number], name);
-  return g_symbols[g_symbol_number++];
+  return g_symbol_number++;
 }
+
+static char* lookupSymbolName(int symbol_id) {
+  assert(symbol_id < g_symbol_number);
+  return g_symbols[symbol_id];
+}
+
 
 static cel0_Value* createSymbolValue(char* name) {
   assert(name);
   cel0_Value* value = malloc(sizeof(cel0_Value));
   value->type = cel0_ValueType_Symbol;
-  value->u.symbol = internSymbol(name);
+  value->u.symbol_id = internSymbol(name);
   return value;
 }
     
@@ -121,7 +127,7 @@ void cel0_printValue(cel0_Value* value, FILE* fd) {
   } else if (value->type == cel0_ValueType_Number) {
     fprintf(fd, "%d ", value->u.number);
   } else if (value->type == cel0_ValueType_Symbol) {
-    fprintf(fd, "%s ", value->u.symbol);    
+    fprintf(fd, "%s ", lookupSymbolName(value->u.symbol_id));    
   }
 }
 
@@ -130,11 +136,11 @@ static cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindi
   for (int i=stack->size-1; i>=0; i-=1) {
     cel0_SymbolBinding* binding = stack->frames + i;
     assert(binding->symbol->type == cel0_ValueType_Symbol);
-    if (binding->symbol->u.symbol == key->u.symbol) {
+    if (binding->symbol->u.symbol_id == key->u.symbol_id) {
       return binding;
     }
   }
-  fprintf(stderr, "Can't find symbol %s\n", key->u.symbol);
+  fprintf(stderr, "Can't find symbol %s\n", lookupSymbolName(key->u.symbol_id));
   assert(0 && "We couldn't find the binding");
   return 0;
 }
@@ -253,10 +259,12 @@ static cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stac
 
   cel0_Value* condition_expression = eval(params->u.vector, stack);
   assert(condition_expression->type == cel0_ValueType_Symbol);
-
-  char* symbol = condition_expression->u.symbol;
-  char condition_true = strcmp(symbol, "true") == 0;
-  char condition_false = !condition_true && (strcmp(symbol, "false") == 0);
+  
+  int true_id = internSymbol("true");
+  int false_id = internSymbol("false");  
+  int symbol_id = condition_expression->u.symbol_id;
+  char condition_true = symbol_id == true_id;
+  char condition_false = !condition_true && (symbol_id == false_id);
   assert(condition_true || condition_false);
   assert(condition_true != condition_false);  
 
@@ -300,7 +308,7 @@ static cel0_Value* eq(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   if (params->u.vector[0].type == cel0_ValueType_Number) {
     equal = params->u.vector[0].u.number == params->u.vector[1].u.number;
   } else if (params->u.vector[0].type == cel0_ValueType_Symbol) {
-    equal = params->u.vector[0].u.symbol == params->u.vector[1].u.symbol;    
+    equal = params->u.vector[0].u.symbol_id == params->u.vector[1].u.symbol_id;
   } else {
     assert(params->u.vector[0].type == cel0_ValueType_Vector);
     equal = params->u.vector == params->u.vector + 1;
@@ -353,7 +361,7 @@ static cel0_Value* open_file(cel0_Value* params, cel0_SymbolBindingStack* stack)
   assert(params->size == 1);
   cel0_Value* file_name = params->u.vector;
   assert(file_name->type == cel0_ValueType_Symbol);
-  FILE* file = fopen(file_name->u.symbol, "rb");
+  FILE* file = fopen(lookupSymbolName(file_name->u.symbol_id), "rb");
   assert(file);
   fseek(file, 0, SEEK_END);
   int size = ftell(file);
