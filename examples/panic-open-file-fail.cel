@@ -1,0 +1,1 @@
+(open-file! (quote hopefully-does-not-exist)))

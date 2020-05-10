@@ -1,0 +1,3 @@
+(bind
+ (fun (lambda () (asd)))
+ (fun))

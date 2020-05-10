@@ -7,23 +7,25 @@
 
 cel0_Value* createNumberValue(int number) {
   cel0_Value* value = malloc(sizeof(cel0_Value));
+  assert(value);
   value->type = cel0_ValueType_Number;
   value->u.number = number;
   return value;
 }
 
-#define cel0_MaxSymbolLength 16
+#define cel0_MaxSymbolLength 32
 #define cel0_MaxSymbols (1<<10)
 
 static char g_symbols[cel0_MaxSymbols][cel0_MaxSymbolLength];
 static int g_symbol_number = 0;
+
 static int internSymbol(char* name) {
-  assert(strlen(name) < cel0_MaxSymbolLength);  
+  assert(strlen(name) < cel0_MaxSymbolLength);
   for (int i=0; i<g_symbol_number; i++) {
     if (strcmp(g_symbols[i], name) == 0)
       return i;
   }
-  assert(g_symbol_number < cel0_MaxSymbols);
+  assert(g_symbol_number < cel0_MaxSymbols && "Reached maximum number of symbols.");
 
   strcpy(g_symbols[g_symbol_number], name);
   return g_symbol_number++;
@@ -34,10 +36,11 @@ static char* lookupSymbolName(int symbol_id) {
   return g_symbols[symbol_id];
 }
 
-
+static cel0_Value* createPanicValue(char* symbol);
 static cel0_Value* createSymbolValue(char* name) {
   assert(name);
   cel0_Value* value = malloc(sizeof(cel0_Value));
+  assert(value);
   value->type = cel0_ValueType_Symbol;
   value->u.symbol_id = internSymbol(name);
   return value;
@@ -52,7 +55,7 @@ cel0_VectorMetadata g_vector_metadata[cel0_MaxVectorMetadataLength];
 
 static int g_vector_metadata_number = 0;
 static int createVectorMetadata() {
-  assert(g_vector_metadata_number < cel0_MaxVectorMetadataLength);
+  assert(g_vector_metadata_number < cel0_MaxVectorMetadataLength && "Reached maximum number of values.");
   memset(g_vector_metadata + g_vector_metadata_number, 0, sizeof(cel0_VectorMetadata));
   return g_vector_metadata_number++;
 }
@@ -64,6 +67,7 @@ static cel0_VectorMetadata* lookupVectorMetadata(int vector_id) {
 
 static cel0_Value* createVectorValue() {
   cel0_Value* value = malloc(sizeof(cel0_Value));
+  assert(value);
   value->type = cel0_ValueType_Vector;  
   value->u.vector_id = createVectorMetadata();
   cel0_VectorMetadata* metadata = lookupVectorMetadata(value->u.vector_id);
@@ -74,15 +78,43 @@ static cel0_Value* createVectorValue() {
 
 static cel0_Value* appendValueToVectorInPlace(cel0_Value* vector, cel0_Value* value) {
   assert(vector);
-  assert(vector->type == cel0_ValueType_Vector);
   assert(value);
+  assert(vector->type == cel0_ValueType_Vector || vector->type == cel0_ValueType_Panic);
 
   cel0_VectorMetadata* metadata = lookupVectorMetadata(vector->u.vector_id);
   int new_size = metadata->size + 1;
   metadata->vector = realloc(metadata->vector, new_size * sizeof(cel0_Value));
+  assert(metadata->vector);
   metadata->vector[metadata->size] = *value;
   metadata->size = new_size;
   return vector;
+}
+
+static cel0_Value* createPanicValue(char* symbol) {
+  cel0_Value* value = malloc(sizeof(cel0_Value));
+  assert(value);
+  value->type = cel0_ValueType_Panic;  
+  value->u.vector_id = createVectorMetadata();
+  cel0_VectorMetadata* metadata = lookupVectorMetadata(value->u.vector_id);
+  metadata->vector = createSymbolValue(symbol);
+  assert(metadata->vector && metadata->vector->type == cel0_ValueType_Symbol);
+  metadata->size = 1;
+  return value;
+}
+
+static cel0_Value* createPanicValueWithParam(char* symbol, cel0_Value* param) {
+  assert(param);
+  cel0_Value* value = malloc(sizeof(cel0_Value));
+  assert(value);
+  value->type = cel0_ValueType_Panic;  
+  value->u.vector_id = createVectorMetadata();
+  cel0_VectorMetadata* metadata = lookupVectorMetadata(value->u.vector_id);
+  metadata->vector = createVectorValue();
+  metadata->size = 1;  
+  assert(metadata->vector);
+  metadata->vector = appendValueToVectorInPlace(metadata->vector, createSymbolValue(symbol));
+  metadata->vector = appendValueToVectorInPlace(metadata->vector, param);  
+  return value;
 }
 
 static cel0_Value* parseNumber(char** code) {
@@ -102,12 +134,11 @@ static cel0_Value* parseNumber(char** code) {
 
 static cel0_Value* parseSymbol(char** code) {
   char end[] = " \f\n\r\t\v)(\0";
-  
   int length = strcspn(*code, end);
-  assert(length < cel0_MaxSymbolLength);
   char name[cel0_MaxSymbolLength];
   strncpy(name, *code, length);
-  name[length] = 0;
+  name[length] = 0;  
+  if (length >= cel0_MaxSymbolLength) return createPanicValueWithParam("symbol-too-long", createSymbolValue(name));  
   *code += length;
   return createSymbolValue(name);
 }
@@ -140,18 +171,20 @@ cel0_Value* cel0_parse(char* code) {
 }
 
 void cel0_printValue(cel0_Value* value, FILE* fd) {
-  assert(value->type == cel0_ValueType_Vector ||
-	 value->type == cel0_ValueType_Number ||
-	 value->type == cel0_ValueType_Symbol);
-  if (value->type == cel0_ValueType_Vector) {
-    fprintf(fd, "(");
+  assert (value->type == cel0_ValueType_Vector ||
+	  value->type == cel0_ValueType_Number ||
+	  value->type == cel0_ValueType_Symbol ||
+	  value->type == cel0_ValueType_Panic);
+  if (value->type == cel0_ValueType_Vector || value->type == cel0_ValueType_Panic) {
+    char panic = value->type == cel0_ValueType_Panic;
+    fprintf(fd,  panic ? "<" : "(");
     cel0_VectorMetadata* metadata = lookupVectorMetadata(value->u.vector_id);
     for (int i=0; i<metadata->size; i++) {
       cel0_printValue(metadata->vector + i, fd);
       if (i != metadata->size - 1)
 	fprintf(fd, " ");              
     }
-    fprintf(fd, ")");
+    fprintf(fd, panic ? ">" : ")");
   } else if (value->type == cel0_ValueType_Number) {
     fprintf(fd, "%d", value->u.number);
   } else if (value->type == cel0_ValueType_Symbol) {
@@ -168,8 +201,6 @@ static cel0_SymbolBinding* lookupSymbolBinding(cel0_Value* key, cel0_SymbolBindi
       return binding;
     }
   }
-  fprintf(stderr, "Can't find symbol %s\n", lookupSymbolName(key->u.symbol_id));
-  assert(0 && "We couldn't find the binding");
   return 0;
 }
 
@@ -177,15 +208,15 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack);
 static cel0_Value* apply(cel0_Value* expression, cel0_Value* parameters, cel0_SymbolBindingStack* stack) {
   assert(expression->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* expression_metadata = lookupVectorMetadata(expression->u.vector_id);  
-  assert(expression_metadata->size == 2);
-  assert(expression_metadata->vector[0].type == cel0_ValueType_Vector);
+  if (expression_metadata->size != 2 || expression_metadata->vector[0].type != cel0_ValueType_Vector)
+    return createPanicValue("ill-formed");
   cel0_VectorMetadata* lambda_list_metadata =
     lookupVectorMetadata(expression_metadata->vector->u.vector_id);  
   assert(parameters->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* parameters_metadata = lookupVectorMetadata(parameters->u.vector_id);
-  assert(lambda_list_metadata->size == parameters_metadata->size);      
-  assert(lambda_list_metadata->size == parameters_metadata->size);      
-
+  if (lambda_list_metadata->size != parameters_metadata->size)
+    return createPanicValue("number-params");
+    
   int caller_stack_size = stack->size;  
   for (int i=0; i<parameters_metadata->size; i++) {
     assert(stack->size < stack->capacity);    
@@ -196,19 +227,36 @@ static cel0_Value* apply(cel0_Value* expression, cel0_Value* parameters, cel0_Sy
     stack->size++;
   }
 
-  cel0_Value* result = eval(expression_metadata->vector + 1, stack);    
+  cel0_Value* result = eval(expression_metadata->vector + 1, stack);
   stack->size = caller_stack_size;
   return result;
 }
 
+static cel0_Value* createEvalPanicStackEntry(cel0_Value* symbol, cel0_Value* parameters) {
+  cel0_Value* stack_entry = appendValueToVectorInPlace(createVectorValue(), symbol);
+  assert(parameters->type == cel0_ValueType_Vector);
+  cel0_VectorMetadata* metadata = lookupVectorMetadata(parameters->u.vector_id);
+  for (int i=0; i<metadata->size; i++) {
+    stack_entry = appendValueToVectorInPlace(stack_entry, metadata->vector + i);
+  }
+  return stack_entry;
+}
+
 static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
+  assert(value);
+  assert(stack);
+
   if (value->type == cel0_ValueType_Vector) {
     int caller_stack_size = stack->size;    
     cel0_VectorMetadata* value_metadata = lookupVectorMetadata(value->u.vector_id);
+    if (value_metadata->size == 0) return createPanicValue("empty-vec");
+
     assert(value_metadata->size > 0);
-    assert(value_metadata->vector->type == cel0_ValueType_Symbol);
+    if (value_metadata->vector->type != cel0_ValueType_Symbol) return createPanicValue("not-symbol");
+								 
     cel0_SymbolBinding* binding = lookupSymbolBinding(value_metadata->vector, stack);
-    assert(binding && "can't find binding.");
+    if(!binding) return createPanicValueWithParam("unbound", value_metadata->vector);
+    
     cel0_Value* parameters = createVectorValue();
     char eval_parameters =
       binding->type == cel0_SymbolBindingType_Native ||
@@ -217,22 +265,29 @@ static cel0_Value* eval(cel0_Value* value, cel0_SymbolBindingStack* stack) {
       cel0_Value* p = eval_parameters ?
 	eval(value_metadata->vector + i, stack) :
 	(value_metadata->vector + i);
+      if (p->type == cel0_ValueType_Panic) return p;
+
       parameters = appendValueToVectorInPlace(parameters, p);
     }
-
     if (binding->type == cel0_SymbolBindingType_TransformNative ||
 	binding->type == cel0_SymbolBindingType_Native) {
-       return binding->u.native(parameters, stack);
+      cel0_Value* ret =  binding->u.native(parameters, stack);
+      if (ret->type == cel0_ValueType_Panic)
+	return appendValueToVectorInPlace(ret, createEvalPanicStackEntry(binding->symbol, parameters));
+      return ret;
     } else {
       assert(binding->type == cel0_SymbolBindingType_Expression);
-      return apply(binding->u.expression, parameters, stack);
+      cel0_Value* ret = apply(binding->u.expression, parameters, stack);
+      if (ret->type == cel0_ValueType_Panic)
+	return appendValueToVectorInPlace(ret, createEvalPanicStackEntry(binding->symbol, parameters));
+      return ret;
     }
     stack->size = caller_stack_size;
   } else if (value->type == cel0_ValueType_Number) {
     return value;
   } else if (value->type == cel0_ValueType_Symbol) {
     cel0_SymbolBinding* binding = lookupSymbolBinding(value, stack);
-    assert(binding && "can't find binding.");
+    if (!binding) return createPanicValueWithParam("unbound", value);
     if (binding->type == cel0_SymbolBindingType_Expression) {
       return binding->u.expression;
     } else if (binding->type == cel0_SymbolBindingType_Native ||
@@ -249,19 +304,19 @@ static cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);
-  assert(params_metadata->size > 1);
+  if (params_metadata->size < 2) return createPanicValueWithParam("ill-formed", params);
   int caller_stack_size = stack->size;  
   for (int i=0; i<params_metadata->size-1; i+=1) {
-    assert(params_metadata->vector[i].type == cel0_ValueType_Vector);
+    if (params_metadata->vector[i].type != cel0_ValueType_Vector) return createPanicValueWithParam("ill-formed", params);
     cel0_VectorMetadata* binding_metadata =
       lookupVectorMetadata(params_metadata->vector[i].u.vector_id);    
 
-    assert(binding_metadata->size == 2);
-    assert(binding_metadata->vector->type == cel0_ValueType_Symbol);    
+    if (binding_metadata->size != 2 || binding_metadata->vector->type != cel0_ValueType_Symbol)
+      return createPanicValue("ill-formed");
 
     assert(stack->size < stack->capacity);
-
     cel0_Value* bound_expression = eval(binding_metadata->vector + 1, stack);
+    if (bound_expression->type == cel0_ValueType_Panic) return bound_expression;
   
     cel0_SymbolBinding* binding = stack->frames + stack->size;
     binding->type = cel0_SymbolBindingType_Expression;
@@ -269,7 +324,7 @@ static cel0_Value* bind(cel0_Value* params, cel0_SymbolBindingStack* stack) {
     binding->u.expression = bound_expression;
     stack->size++;
   }
-  cel0_Value* result = eval(params_metadata->vector + params_metadata->size - 1, stack);  
+  cel0_Value* result = eval(params_metadata->vector + params_metadata->size - 1, stack);
   stack->size = caller_stack_size;
   return result;
 }
@@ -279,9 +334,11 @@ static cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);  
-  assert(metadata->size == 2);
-  assert(metadata->vector[0].type == cel0_ValueType_Vector);
-  assert(metadata->vector[1].type == cel0_ValueType_Vector);  
+  if (metadata->size != 2 || 
+      metadata->vector[0].type != cel0_ValueType_Vector ||
+      metadata->vector[1].type != cel0_ValueType_Vector) {
+    return createPanicValue("ill-formed");
+  }
 
   return params;
 }
@@ -290,8 +347,9 @@ static cel0_Value* quote(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(stack);
   assert(params->type == cel0_ValueType_Vector);
-  cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);    
-  assert(metadata->size == 1);  
+  cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);
+  if (metadata->size != 1) return createPanicValue("quote-ill-formed");
+
   return metadata->vector;
 }
 
@@ -299,10 +357,11 @@ static cel0_Value* ifStatement(cel0_Value* params, cel0_SymbolBindingStack* stac
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);    
-  assert(params_metadata->size == 3);
+  if(params_metadata->size != 3) return createPanicValue("ill-formed");
 
-  cel0_Value* condition_expression = eval(params_metadata->vector, stack);  
-  assert(condition_expression->type == cel0_ValueType_Symbol);
+  cel0_Value* condition_expression = eval(params_metadata->vector, stack);
+  if (condition_expression->type == cel0_ValueType_Panic) return condition_expression;
+  if (condition_expression->type != cel0_ValueType_Symbol) return createPanicValue("condition-non-symbol");
   
   int true_id = internSymbol("true");
   int false_id = internSymbol("false");  
@@ -324,7 +383,8 @@ static cel0_Value* add(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);    
   int result = 0;
   for (int i=0; i<params_metadata->size; i++) {
-    assert(params_metadata->vector[i].type == cel0_ValueType_Number);
+    if (params_metadata->vector[i].type != cel0_ValueType_Number)
+      return createPanicValueWithParam("add-no-number", params_metadata->vector + i);
     result += params_metadata->vector[i].u.number;
   }
   return createNumberValue(result);
@@ -337,7 +397,8 @@ static cel0_Value* mul(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);    
   int result = 1;
   for (int i=0; i<params_metadata->size; i++) {
-    assert(params_metadata->vector[i].type == cel0_ValueType_Number);
+    if (params_metadata->vector[i].type != cel0_ValueType_Number)
+      return createPanicValue("param-type");
     result *= params_metadata->vector[i].u.number;
   }
   return createNumberValue(result);
@@ -348,12 +409,11 @@ static cel0_Value* eq(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);      
-  assert(params_metadata->size == 2);
-  assert(params_metadata->vector[0].type == params_metadata->vector[1].type);
+  if (params_metadata->size != 2) return createPanicValue("eq-ill-formed");
+  if (params_metadata->vector[0].type != params_metadata->vector[1].type) return createPanicValue("eq-!=-types");
 
   char equal = 0;
   int type = params_metadata->vector[0].type;
-  assert(type == params_metadata->vector[1].type);
   if (type == cel0_ValueType_Number) {
     equal = params_metadata->vector[0].u.number == params_metadata->vector[1].u.number;
   } else if (type == cel0_ValueType_Symbol) {
@@ -370,9 +430,9 @@ static cel0_Value* append(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);  
-  assert(params_metadata->size == 2);
+  if (params_metadata->size != 2) return createPanicValue("ill-formed");
   cel0_Value* vec = params_metadata->vector;
-  assert(vec->type == cel0_ValueType_Vector);
+  if (vec->type != cel0_ValueType_Vector) return createPanicValue("param-type-1");
   cel0_VectorMetadata* vec_metadata = lookupVectorMetadata(vec->u.vector_id);   
   cel0_Value* result = createVectorValue();
   cel0_VectorMetadata* result_metadata = lookupVectorMetadata(result->u.vector_id);    
@@ -389,8 +449,8 @@ static cel0_Value* length(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);
-  assert(params_metadata->size == 1);
-  assert(params_metadata->vector->type == cel0_ValueType_Vector);  
+  if (params_metadata->size != 1) return createPanicValue("ill-formed");
+  if (params_metadata->vector->type != cel0_ValueType_Vector) return createPanicValue("param-type-1");  
   return createNumberValue(lookupVectorMetadata(params_metadata->vector->u.vector_id)->size);
 }
 
@@ -398,15 +458,15 @@ static cel0_Value* nth(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(stack);
   assert(params);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);
-  assert(params_metadata->size == 2);
+  if (params_metadata->size != 2) return createPanicValue("ill-formed");
   cel0_Value* index = params_metadata->vector;
-  assert(index->type == cel0_ValueType_Number);
-  cel0_Value* vec = params_metadata->vector + 1;  
-  assert(vec->type == cel0_ValueType_Vector);  
+  if (index->type != cel0_ValueType_Number) return createPanicValue("param-type-1");
+  cel0_Value* vec = params_metadata->vector + 1;
+  if (vec->type != cel0_ValueType_Vector) return createPanicValue("param-type-2");  
   cel0_VectorMetadata* vec_metadata = lookupVectorMetadata(vec->u.vector_id);
 
-  assert(index->u.number < vec_metadata->size);
-  assert(index->u.number >= 0);
+  if (index->u.number < 0 || index->u.number >= vec_metadata->size)
+    return createPanicValue("out-of-bounds");
   return vec_metadata->vector + index->u.number;  
 }
 
@@ -415,11 +475,11 @@ static cel0_Value* open_file(cel0_Value* params, cel0_SymbolBindingStack* stack)
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* params_metadata = lookupVectorMetadata(params->u.vector_id);
-  assert(params_metadata->size == 1);
+  if (params_metadata->size != 1) return createPanicValue("ill-formed");
   cel0_Value* file_name = params_metadata->vector;
-  assert(file_name->type == cel0_ValueType_Symbol);
-  FILE* file = fopen(lookupSymbolName(file_name->u.symbol_id), "rb");  
-  assert(file);
+  if (file_name->type != cel0_ValueType_Symbol) return createPanicValue("param-type-1");
+  FILE* file = fopen(lookupSymbolName(file_name->u.symbol_id), "rb");
+  if (!file) return createPanicValue("failed-open");  
   fseek(file, 0, SEEK_END);
   int size = ftell(file);
   rewind(file);
@@ -450,7 +510,7 @@ static cel0_Value* debug_print(cel0_Value* params, cel0_SymbolBindingStack* stac
   assert(params);
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);
-  assert(metadata->size == 1);
+  if (metadata->size != 1) return createPanicValue("ill-formed");
   cel0_printValue(metadata->vector, stdout);
   printf("\n");
   return metadata->vector;

@@ -1,0 +1,1 @@
+<param-type (mul 1 true) (panic) (if (panic) 1 2) (bind (panic (lambda () (mul 1 (quote true)))) (if (panic) 1 2))>

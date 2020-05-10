@@ -4,6 +4,7 @@
 #define cel0_ValueType_Number 0
 #define cel0_ValueType_Symbol 1
 #define cel0_ValueType_Vector 2
+#define cel0_ValueType_Panic 3
 
 typedef struct cel0_Value {
   int type;

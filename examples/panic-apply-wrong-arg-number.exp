@@ -1,0 +1,1 @@
+<number-params (fun 1 2) (bind (fun (lambda (a b c) (mul a b c))) (fun 1 2))>
