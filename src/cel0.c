@@ -335,8 +335,7 @@ static cel0_Value* lambda(cel0_Value* params, cel0_SymbolBindingStack* stack) {
   assert(params->type == cel0_ValueType_Vector);
   cel0_VectorMetadata* metadata = lookupVectorMetadata(params->u.vector_id);  
   if (metadata->size != 2 || 
-      metadata->vector[0].type != cel0_ValueType_Vector ||
-      metadata->vector[1].type != cel0_ValueType_Vector) {
+      metadata->vector[0].type != cel0_ValueType_Vector) {
     return createPanicValue("ill-formed");
   }
 
