@@ -1,0 +1,10 @@
+(bind
+ (fun
+  (lambda (x)
+    (bind
+     (x-s (add 1 x))
+     (lambda (y) (add x-s y)))))
+ (fun-add-2 (fun 1))
+ (fun-add-3 (fun 2)) 
+ (add (fun-add-2 2) (fun-add-3 3)))
+     

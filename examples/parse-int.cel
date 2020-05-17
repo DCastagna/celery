@@ -32,7 +32,7 @@
 		    acc
 		    (if (eq (nth it buff) close-paren)
 			acc
-			panic))))))
+			(quote panic)))))))
      (if (eq (nth it buff) minus-sign-char)	
 	 (mul -1 (parse-int-acc buff (add 1 it) 0))
          (parse-int-acc buff it 0)))))

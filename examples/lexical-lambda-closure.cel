@@ -1,0 +1,5 @@
+(bind
+ (asd 2)
+ (fun (lambda () (add asd 1)))
+ (fun))
+ 

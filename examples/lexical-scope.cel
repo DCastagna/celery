@@ -1,0 +1,4 @@
+(bind
+ (fun (lambda () (add unbound 1)))
+ (unbound 2)
+ (fun))

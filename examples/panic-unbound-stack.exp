@@ -1,1 +1,1 @@
-<(unbound asd) (fun) (bind (fun (lambda () (asd))) (fun))>
+<(unbound asd) (lambda () (asd)) (bind (fun (lambda () (asd))) (fun))>
